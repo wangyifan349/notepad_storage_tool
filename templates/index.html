@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密记事本</title>
+    <style>
+        /* ------------------------ 样式设置 ------------------------ */
+        body {
+            background-color: #e6f7e6;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 60%;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>在线加密记事本</h1>
+        <form id="noteForm">
+            <textarea id="content" rows="10" cols="50"></textarea><br>
+            <input type="password" id="password" placeholder="输入密码进行加密（可选）"><br>
+            <button type="button" onclick="handleSubmit()">保存</button>
+        </form>
+    </div>
+
+    <!-- ------------------------ JavaScript 加密部分 ------------------------ -->
+    <script>
+        async function encryptData(content, password) {
+            const enc = new TextEncoder();
+            const keyMaterial = await window.crypto.subtle.importKey(
+                "raw",
+                enc.encode(password),
+                { name: "PBKDF2" },
+                false,
+                ["deriveKey"]
+            );
+
+            const salt = window.crypto.getRandomValues(new Uint8Array(16));
+            const key = await window.crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt: salt,
+                    iterations: 100000,
+                    hash: "SHA-256"
+                },
+                keyMaterial,
+                { name: "AES-GCM", length: 256 },
+                false,
+                ["encrypt"]
+            );
+
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            const encrypted = await window.crypto.subtle.encrypt(
+                { name: "AES-GCM", iv: iv },
+                key,
+                enc.encode(content)
+            );
+
+            return {
+                cipherText: new Uint8Array(encrypted),
+                iv: iv,
+                salt: salt
+            };
+        }
+
+        async function handleSubmit() {
+            const content = document.getElementById('content').value;
+            const password = document.getElementById('password').value;
+
+            let encryptedData;
+            try {
+                if (password) {
+                    encryptedData = await encryptData(content, password);
+                } else {
+                    encryptedData = { cipherText: new TextEncoder().encode(content) };
+                }
+
+                const response = await fetch('/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        iv: encryptedData.iv ? Array.from(encryptedData.iv) : null,
+                        salt: encryptedData.salt ? Array.from(encryptedData.salt) : null,
+                        content: Array.from(encryptedData.cipherText)
+                    })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    window.location.href = `/note/${data.note_id}`;
+                }
+            } catch (error) {
+                console.error("加密错误: ", error);
+            }
+        }
+    </script>
+</body>
+</html>
