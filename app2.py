@@ -1,6 +1,7 @@
 from flask import Flask, render_template_string, request, jsonify
 import uuid
 import json
+from datetime import datetime
 app = Flask(__name__)
 # ------------------------ 数据库初始化 ------------------------
 try:
@@ -8,11 +9,9 @@ try:
         notes = json.load(file)
 except FileNotFoundError:
     notes = {}
-
 def save_notes():
     with open('notes.json', 'w') as file:
         json.dump(notes, file)
-
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
@@ -21,7 +20,8 @@ def index():
         notes[note_id] = {
             'content': data['content'],
             'iv': data['iv'],
-            'salt': data['salt']
+            'salt': data['salt'],
+            'timestamp': datetime.now().isoformat()  # 记录当前时间
         }
         save_notes()
         return jsonify({'note_id': note_id})
@@ -161,7 +161,6 @@ def index():
     </body>
     </html>
     """)
-
 @app.route('/note/<note_id>', methods=['GET'])
 def view_note(note_id):
     note = notes.get(note_id)
@@ -233,11 +232,17 @@ def view_note(note_id):
                 width: 300px;
                 border-radius: 4px;
             }
+            .note-info {
+                margin-bottom: 10px;
+                font-size: 14px;
+                color: #555;
+            }
         </style>
     </head>
     <body>
 
         <div class="container">
+            <div class="note-info">创建时间：{{ note.timestamp }}</div>
             <textarea id="content" rows="10" readonly placeholder="待解密内容..."></textarea>
             <button type="button" id="decryptButton">解密</button>
         </div>
