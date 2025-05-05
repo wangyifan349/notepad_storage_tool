@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>查看记事本</title>
+    <style>
+        /* ------------------------ 样式设置 ------------------------ */
+        body {
+            background-color: #e6f7e6;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            width: 60%;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>查看记事本</h1>
+        <textarea id="content" rows="10" cols="50" readonly></textarea><br>
+        <input type="password" id="password" placeholder="请输入解密密码（如果需要）"><br>
+        <button type="button" onclick="handleDecrypt()">解密</button>
+    </div>
+
+    <!-- ------------------------ JavaScript 解密部分 ------------------------ -->
+    <script>
+        async function decryptData(cipherData, password, iv, salt) {
+            const enc = new TextEncoder();
+            const keyMaterial = await window.crypto.subtle.importKey(
+                "raw",
+                enc.encode(password),
+                { name: "PBKDF2" },
+                false,
+                ["deriveKey"]
+            );
+
+            const key = await window.crypto.subtle.deriveKey(
+                {
+                    name: "PBKDF2",
+                    salt: new Uint8Array(salt),
+                    iterations: 100000,
+                    hash: "SHA-256"
+                },
+                keyMaterial,
+                { name: "AES-GCM", length: 256 },
+                false,
+                ["decrypt"]
+            );
+
+            const decrypted = await window.crypto.subtle.decrypt(
+                { name: "AES-GCM", iv: new Uint8Array(iv) },
+                key,
+                new Uint8Array(cipherData)
+            );
+
+            const dec = new TextDecoder();
+            return dec.decode(decrypted);
+        }
+
+        async function handleDecrypt() {
+            const password = document.getElementById('password').value;
+            const noteContent = new Uint8Array({{ note.content }});
+            const iv = {{ note.iv }};
+            const salt = {{ note.salt }};
+
+            try {
+                let decryptedContent;
+                if (iv && salt) {
+                    decryptedContent = await decryptData(noteContent, password, iv, salt);
+                } else {
+                    const dec = new TextDecoder();
+                    decryptedContent = dec.decode(noteContent);
+                }
+                document.getElementById('content').value = decryptedContent;
+            } catch (error) {
+                console.error("解密错误: ", error);
+                alert("解密失败，请确认密码输入正确。");
+            }
+        }
+    </script>
+</body>
+</html>
