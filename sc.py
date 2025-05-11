@@ -142,15 +142,31 @@ def receive_messages(client_socket, derived_key):
     """
     try:
         while True:
+            # Receive an encrypted message from the server
             encrypted_response = client_socket.recv(1024)
             if not encrypted_response:
                 break
             try:
                 # Attempt to decrypt the server's response
                 decrypted_response = aes_gcm_decrypt(derived_key, encrypted_response)
-                print("Server:", decrypted_response.decode())
+                print("\nServer:", decrypted_response.decode())
             except Exception as e:
                 print(f"Failed to decrypt message from server: {e}")
+    finally:
+        client_socket.close()
+# -----------------------------------------------------------------------------
+def send_messages(client_socket, derived_key):
+    """
+    Continuously prompt user for input and send encrypted messages to the server.
+    """
+    try:
+        while True:
+            # Read user input and send encrypted message to the server
+            message = input("Enter message: ").encode()
+            encrypted_message = aes_gcm_encrypt(derived_key, message)
+            client_socket.sendall(encrypted_message)
+    except KeyboardInterrupt:
+        print("\nClient shutting down.")
     finally:
         client_socket.close()
 # -----------------------------------------------------------------------------
@@ -173,16 +189,14 @@ def client():
         # Start receiving thread
         receive_thread = threading.Thread(target=receive_messages, args=(client_socket, derived_key))
         receive_thread.start()
-        try:
-            while True:
-                # Read user input and send encrypted message to the server
-                message = input("Enter message: ").encode()
-                encrypted_message = aes_gcm_encrypt(derived_key, message)
-                client_socket.sendall(encrypted_message)
-        except KeyboardInterrupt:
-            print("Client shutting down.")
-            client_socket.close()
+        # Start sending thread
+        send_thread = threading.Thread(target=send_messages, args=(client_socket, derived_key))
+        send_thread.start()
+        # Wait for both threads to complete
+        receive_thread.join()
+        send_thread.join()
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     client()
 
+# -----------------------------------------------------------------------------
