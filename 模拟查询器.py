@@ -37,6 +37,13 @@ def api_search():
     results = find_closest_matches(query)
     return jsonify(results)
 
+@app.route('/view/<string:med_name>')
+def view_medication(med_name):
+    med_info = medications.get(med_name.lower())
+    if not med_info:
+        return render_template_string(not_found_html), 404
+    return render_template_string(view_html, medication=med_info)
+
 index_html = '''
 <!DOCTYPE html>
 <html lang="en">
@@ -78,7 +85,7 @@ index_html = '''
                         resultsDiv.empty();
                         if (data.length > 0) {
                             data.forEach(med => {
-                                resultsDiv.append(`<a href="#" class="list-group-item list-group-item-action">
+                                resultsDiv.append(`<a href="/view/${med.name.toLowerCase()}" class="list-group-item list-group-item-action">
                                     <strong>${med.name}</strong>: ${med.description} - <em>${med.uses}</em>
                                 </a>`);
                             });
@@ -96,5 +103,42 @@ index_html = '''
 </html>
 '''
 
+view_html = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ medication.name }} Details</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">{{ medication.name }}</h1>
+        <p><strong>Description:</strong> {{ medication.description }}</p>
+        <p><strong>Uses:</strong> {{ medication.uses }}</p>
+        <a href="/" class="btn btn-secondary">Back to search</a>
+    </div>
+</body>
+</html>
+'''
+
+not_found_html = '''
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Not Found</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5 text-center">404 - Medication Not Found</h1>
+        <p class="text-center">The medication you are looking for does not exist.</p>
+        <a href="/" class="btn btn-secondary">Back to search</a>
+    </div>
+</body>
+</html>
+'''
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False)
