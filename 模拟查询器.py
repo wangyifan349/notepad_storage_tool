@@ -15,7 +15,7 @@ medications = {
         'description': 'Common pain reliever and fever reducer.',
         'uses': 'Fever, headache'
     },
-    # 可以添加更多药物数据
+    # 在此添加更多药物数据
 }
 
 def find_closest_matches(query, max_distance=2):
@@ -31,36 +31,11 @@ def find_closest_matches(query, max_distance=2):
 def index():
     return render_template_string(index_html)
 
-@app.route('/search')
-def search():
-    query = request.args.get('q', '').lower()
-    results = find_closest_matches(query)
-    return render_template_string(search_html, query=query, results=results)
-
-@app.route('/view/<string:med_name>')
-def view_medication(med_name):
-    med_info = medications.get(med_name.lower())
-    if not med_info:
-        return render_template_string(not_found_html), 404
-    return render_template_string(view_html, medication=med_info)
-
-# 新增API接口
-@app.route('/api/search', methods=['POST'])
+@app.route('/search', methods=['POST'])
 def api_search():
-    data = request.json
-    query = data.get('query', '').lower()
+    query = request.json.get('query', '').lower()
     results = find_closest_matches(query)
     return jsonify(results)
-
-@app.route('/api/view', methods=['POST'])
-def api_view():
-    data = request.json
-    med_name = data.get('name', '').lower()
-    med_info = medications.get(med_name)
-    if med_info:
-        return jsonify(med_info)
-    else:
-        return jsonify({'error': 'Medication not found'}), 404
 
 index_html = '''
 <!DOCTYPE html>
@@ -69,80 +44,54 @@ index_html = '''
     <meta charset="UTF-8">
     <title>Medical Search</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #results {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            background-color: #f8f9fa;
+        }
+    </style>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
 </head>
 <body>
     <div class="container">
         <h1 class="mt-5 text-center">Medical Search</h1>
-        <form action="/search" method="get" class="form-inline justify-content-center mt-3">
-            <input type="text" name="q" class="form-control mr-2" placeholder="Enter drug name" required>
-            <button type="submit" class="btn btn-primary">Search</button>
-        </form>
+        <div class="form-group mt-3">
+            <input type="text" id="searchBox" class="form-control" placeholder="Enter drug name">
+        </div>
+        <div id="results" class="list-group mt-3"></div>
     </div>
-</body>
-</html>
-'''
-
-search_html = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Search Results for "{{ query }}"</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container">
-        <h1 class="mt-5 text-center">Search Results for "{{ query }}"</h1>
-        <ul class="list-group mt-3">
-            {% if results %}
-                {% for med in results %}
-                    <li class="list-group-item">
-                        <a href="/view/{{ med.name.lower() }}">{{ med.name }}</a>: {{ med.description }}
-                    </li>
-                {% endfor %}
-            {% else %}
-                <li class="list-group-item">No results found.</li>
-            {% endif %}
-        </ul>
-        <a href="/" class="btn btn-secondary mt-3">Back to search</a>
-    </div>
-</body>
-</html>
-'''
-
-view_html = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>{{ medication.name }}</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container">
-        <h1 class="mt-5 text-center">{{ medication.name }}</h1>
-        <p><strong>Description:</strong> {{ medication.description }}</p>
-        <p><strong>Uses:</strong> {{ medication.uses }}</p>
-        <a href="/" class="btn btn-secondary">Back to search</a>
-    </div>
-</body>
-</html>
-'''
-
-not_found_html = '''
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Not Found</title>
-    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body>
-    <div class="container">
-        <h1 class="mt-5 text-center">404 - Medication Not Found</h1>
-        <p class="text-center">The medication you are looking for does not exist.</p>
-        <a href="/" class="btn btn-secondary">Back to search</a>
-    </div>
+    <script>
+        $('#searchBox').on('input', function() {
+            const query = $(this).val().trim();
+            if (query.length > 0) {
+                $.ajax({
+                    url: '/search',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ query: query }),
+                    success: function(data) {
+                        let resultsDiv = $('#results');
+                        resultsDiv.empty();
+                        if (data.length > 0) {
+                            data.forEach(med => {
+                                resultsDiv.append(`<a href="#" class="list-group-item list-group-item-action">
+                                    <strong>${med.name}</strong>: ${med.description} - <em>${med.uses}</em>
+                                </a>`);
+                            });
+                        } else {
+                            resultsDiv.append('<div class="alert alert-warning">No results found.</div>');
+                        }
+                    }
+                });
+            } else {
+                $('#results').empty();
+            }
+        });
+    </script>
 </body>
 </html>
 '''
